@@ -3,13 +3,10 @@ from discord.ext import commands
 from discord.ui import View, Select, Modal, TextInput
 import io
 import os
-from dotenv import load_dotenv
 
-# Load environment variables from .env
-load_dotenv()
-TOKEN = os.getenv("TOKEN")  # Your bot token stored in Render secrets or .env
+# ---------------- CONFIG ----------------
+TOKEN = os.getenv("TOKEN")  # Or hardcode for testing
 
-# IDs for your server, categories, channels, roles
 SERVER_ID = 948971532431015976
 OWNER_ID = 458624557763526666
 
@@ -21,34 +18,26 @@ CLOSED_CATEGORY_ID = 1481184543506432032
 LOG_CHANNEL_ID = 1481187511769235639
 STAFF_ROLE_ID = 1481186627790307431
 
+BLUE = discord.Color.from_rgb(135, 206, 250)
+
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-BLUE = discord.Color.from_rgb(135, 206, 250)
-
-
+# ---------------- HELPERS ----------------
 def is_staff(member):
     return any(role.id == STAFF_ROLE_ID for role in member.roles)
 
-
 async def transcript(channel):
-    """Save full ticket history as a file."""
     messages = []
     async for msg in channel.history(limit=None, oldest_first=True):
-        content = msg.content or ""
-        messages.append(f"{msg.author}: {content}")
+        messages.append(f"{msg.author}: {msg.content}")
     data = "\n".join(messages)
     return io.BytesIO(data.encode())
 
-
 def ticket_exists(guild, user, prefix):
-    for ch in guild.text_channels:
-        if ch.name == f"{prefix}-{user.name}".lower():
-            return True
-    return False
+    return any(ch.name == f"{prefix}-{user.name}".lower() for ch in guild.text_channels)
 
-
-# --------------------- Modals ---------------------
+# ---------------- MODALS ----------------
 class OrderModal(Modal, title="📦 Order Form"):
     product = TextInput(label="Product / Service")
     quantity = TextInput(label="Quantity")
@@ -74,7 +63,6 @@ class OrderModal(Modal, title="📦 Order Form"):
 
         await channel.send(f"{interaction.user.mention}", embed=embed, view=TicketButtons())
         await interaction.response.send_message(f"✅ Your order ticket has been created: {channel.mention}", ephemeral=True)
-
 
 class ReportModal(Modal, title="⚠ Report Product"):
     product = TextInput(label="Product Name")
@@ -102,8 +90,7 @@ class ReportModal(Modal, title="⚠ Report Product"):
         await channel.send(f"{interaction.user.mention}", embed=embed, view=TicketButtons())
         await interaction.response.send_message(f"✅ Your report ticket has been created: {channel.mention}", ephemeral=True)
 
-
-# --------------------- Buttons ---------------------
+# ---------------- VIEWS ----------------
 class TicketButtons(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -139,8 +126,6 @@ class TicketButtons(View):
         await interaction.channel.edit(category=category)
         await interaction.response.send_message("🔒 Ticket closed.")
 
-
-# --------------------- Dropdown ---------------------
 class TicketDropdown(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -158,25 +143,22 @@ class TicketDropdown(View):
         elif select.values[0] == "Report Product":
             await interaction.response.send_modal(ReportModal())
 
-
-# --------------------- Commands ---------------------
+# ---------------- COMMANDS ----------------
 @bot.command()
 async def panel(ctx):
-    embed = discord.Embed(
-        title="☁ Pocoyo Ticket System",
-        description="Select a ticket option below to continue.",
-        color=BLUE
-    )
+    embed = discord.Embed(title="☁ Pocoyo Ticket System", description="Select a ticket option below to continue.", color=BLUE)
     await ctx.send(embed=embed, view=TicketDropdown())
 
-
-# --------------------- Events ---------------------
+# ---------------- READY ----------------
 @bot.event
 async def on_ready():
     bot.add_view(TicketDropdown())
     bot.add_view(TicketButtons())
-    print(f"✅ Bot Ready: {bot.user} (ID: {bot.user.id})")
+    print(f"✅ Bot Ready: {bot.user}")
 
+# ---------------- RUN ----------------
+if not TOKEN:
+    print("TOKEN not found in environment variables")
+    exit()
 
-# --------------------- Run Bot ---------------------
 bot.run(TOKEN)
