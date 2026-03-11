@@ -5,7 +5,7 @@ import io
 import os
 
 # ---------------- CONFIG ----------------
-TOKEN = os.getenv("TOKEN")  # Or hardcode for testing
+TOKEN = os.getenv("TOKEN")  # Make sure your token is set in Render's environment variables
 
 SERVER_ID = 948971532431015976
 OWNER_ID = 458624557763526666
@@ -20,7 +20,10 @@ STAFF_ROLE_ID = 1481186627790307431
 
 BLUE = discord.Color.from_rgb(135, 206, 250)
 
-intents = discord.Intents.all()
+# ---------------- INTENTS ----------------
+# Only enable what you need: members intent is required for checking roles
+intents = discord.Intents.default()
+intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ---------------- HELPERS ----------------
