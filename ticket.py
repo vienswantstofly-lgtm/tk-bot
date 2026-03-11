@@ -3,15 +3,13 @@ from discord.ext import commands
 from discord.ui import View, Select, Modal, TextInput
 import io
 import os
-import sys
+from dotenv import load_dotenv
 
-# ✅ Use environment variable for token
-TOKEN = os.getenv("TOKEN")
-if not TOKEN:
-    print("❌ ERROR: TOKEN environment variable not set!")
-    sys.exit(1)
+# Load environment variables from .env
+load_dotenv()
+TOKEN = os.getenv("TOKEN")  # Your bot token stored in Render secrets or .env
 
-# IDs - replace with your actual IDs
+# IDs for your server, categories, channels, roles
 SERVER_ID = 948971532431015976
 OWNER_ID = 458624557763526666
 
@@ -23,7 +21,6 @@ CLOSED_CATEGORY_ID = 1481184543506432032
 LOG_CHANNEL_ID = 1481187511769235639
 STAFF_ROLE_ID = 1481186627790307431
 
-# Bot setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -35,9 +32,11 @@ def is_staff(member):
 
 
 async def transcript(channel):
+    """Save full ticket history as a file."""
     messages = []
     async for msg in channel.history(limit=None, oldest_first=True):
-        messages.append(f"{msg.author}: {msg.content}")
+        content = msg.content or ""
+        messages.append(f"{msg.author}: {content}")
     data = "\n".join(messages)
     return io.BytesIO(data.encode())
 
@@ -49,7 +48,7 @@ def ticket_exists(guild, user, prefix):
     return False
 
 
-# -------------------- Modals --------------------
+# --------------------- Modals ---------------------
 class OrderModal(Modal, title="📦 Order Form"):
     product = TextInput(label="Product / Service")
     quantity = TextInput(label="Quantity")
@@ -62,7 +61,6 @@ class OrderModal(Modal, title="📦 Order Form"):
             return
 
         category = interaction.guild.get_channel(ORDER_CATEGORY_ID)
-
         channel = await interaction.guild.create_text_channel(
             name=f"order-{interaction.user.name}".lower(),
             category=category
@@ -75,11 +73,7 @@ class OrderModal(Modal, title="📦 Order Form"):
         embed.add_field(name="Notes", value=self.notes)
 
         await channel.send(f"{interaction.user.mention}", embed=embed, view=TicketButtons())
-
-        await interaction.response.send_message(
-            f"✅ Your order ticket has been created: {channel.mention}",
-            ephemeral=True
-        )
+        await interaction.response.send_message(f"✅ Your order ticket has been created: {channel.mention}", ephemeral=True)
 
 
 class ReportModal(Modal, title="⚠ Report Product"):
@@ -94,7 +88,6 @@ class ReportModal(Modal, title="⚠ Report Product"):
             return
 
         category = interaction.guild.get_channel(ORDER_CATEGORY_ID)
-
         channel = await interaction.guild.create_text_channel(
             name=f"report-{interaction.user.name}".lower(),
             category=category
@@ -107,14 +100,10 @@ class ReportModal(Modal, title="⚠ Report Product"):
         embed.add_field(name="Purchased", value=self.time)
 
         await channel.send(f"{interaction.user.mention}", embed=embed, view=TicketButtons())
-
-        await interaction.response.send_message(
-            f"✅ Your report ticket has been created: {channel.mention}",
-            ephemeral=True
-        )
+        await interaction.response.send_message(f"✅ Your report ticket has been created: {channel.mention}", ephemeral=True)
 
 
-# -------------------- Views --------------------
+# --------------------- Buttons ---------------------
 class TicketButtons(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -124,7 +113,6 @@ class TicketButtons(View):
         if not is_staff(interaction.user):
             await interaction.response.send_message("❌ Staff only.", ephemeral=True)
             return
-
         category = interaction.guild.get_channel(QUEUE_CATEGORY_ID)
         await interaction.channel.edit(category=category)
         await interaction.response.send_message("📥 Ticket moved to queue.")
@@ -134,7 +122,6 @@ class TicketButtons(View):
         if not is_staff(interaction.user):
             await interaction.response.send_message("❌ Staff only.", ephemeral=True)
             return
-
         category = interaction.guild.get_channel(COMPLETED_CATEGORY_ID)
         await interaction.channel.edit(category=category)
         await interaction.response.send_message("✅ Ticket marked completed.")
@@ -144,17 +131,16 @@ class TicketButtons(View):
         if not is_staff(interaction.user):
             await interaction.response.send_message("❌ Staff only.", ephemeral=True)
             return
-
         file = await transcript(interaction.channel)
         log = interaction.guild.get_channel(LOG_CHANNEL_ID)
         if log:
             await log.send(f"📄 Transcript for {interaction.channel.name}", file=discord.File(file, filename="transcript.txt"))
-
         category = interaction.guild.get_channel(CLOSED_CATEGORY_ID)
         await interaction.channel.edit(category=category)
         await interaction.response.send_message("🔒 Ticket closed.")
 
 
+# --------------------- Dropdown ---------------------
 class TicketDropdown(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -173,7 +159,7 @@ class TicketDropdown(View):
             await interaction.response.send_modal(ReportModal())
 
 
-# -------------------- Commands --------------------
+# --------------------- Commands ---------------------
 @bot.command()
 async def panel(ctx):
     embed = discord.Embed(
@@ -184,20 +170,13 @@ async def panel(ctx):
     await ctx.send(embed=embed, view=TicketDropdown())
 
 
-# -------------------- Events --------------------
+# --------------------- Events ---------------------
 @bot.event
 async def on_ready():
     bot.add_view(TicketDropdown())
     bot.add_view(TicketButtons())
-    print(f"✅ Bot Ready: {bot.user}")
+    print(f"✅ Bot Ready: {bot.user} (ID: {bot.user.id})")
 
 
-# -------------------- Run Bot --------------------
-try:
-    bot.run(TOKEN)
-except discord.LoginFailure:
-    print("❌ Invalid token! Check your TOKEN environment variable.")
-    sys.exit(1)
-except discord.HTTPException as e:
-    print(f"❌ HTTPException: {e}")
-    sys.exit(1)
+# --------------------- Run Bot ---------------------
+bot.run(TOKEN)
